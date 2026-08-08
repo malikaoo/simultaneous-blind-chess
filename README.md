@@ -4,7 +4,7 @@
 
 **A chess variant where both players move at the same instant — and can't see each other's choice.**
 
-[![Play Live](https://img.shields.io/badge/▶%20Play%20Live-GitHub%20Pages-00d2d3?style=for-the-badge)](https://[YOUR-USERNAME].github.io/simultaneous-blind-chess/)
+[![Play Live](https://img.shields.io/badge/▶%20Play%20Live-GitHub%20Pages-00d2d3?style=for-the-badge)](https://malikaoo.github.io/simultaneous-blind-chess/)
 [![License: Non-Commercial](https://img.shields.io/badge/License-Non--Commercial-ff9f43?style=for-the-badge)](./LICENSE)
 [![HTML Only](https://img.shields.io/badge/No%20Install-Open%20%26%20Play-2ed573?style=for-the-badge)](#run-it)
 
@@ -94,7 +94,7 @@ Use **↩ UNDO** and **↪ REDO** to review full turn history at any point.
 **No installation. No server. No dependencies.**
 
 **Option A — Play online:**
-👉 [https://[YOUR-USERNAME].github.io/simultaneous-blind-chess/](https://[YOUR-USERNAME].github.io/simultaneous-blind-chess/)
+👉 [https://malikaoo.github.io/simultaneous-blind-chess/](https://malikaoo.github.io/simultaneous-blind-chess/)
 
 **Option B — Run locally:**
 1. Download `index.html`
@@ -105,7 +105,7 @@ Use **↩ UNDO** and **↪ REDO** to review full turn history at any point.
 
 ## About This Project
 
-**Invented and built in 2025 by [YOUR FULL NAME].**
+**Invented and built in 2025 by [Tarek Nasser].**
 
 The combination of:
 - Blind simultaneous move selection on a shared device
