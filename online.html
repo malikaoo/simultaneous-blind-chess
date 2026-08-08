@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simultaneous Blind Chess Variant — Online P2P</title>
+  
+  <!-- PeerJS Library for WebRTC -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #1e1e24;
+      color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* ── Viewport-fit scaling wrapper ─────────────────── */
+    #gameSection {
+      width: 100%;
+      overflow: hidden;
+    }
+    #gameWrapper {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 20px 10px;
+      box-sizing: border-box;
+    }
+
+    /* ── Online Lobby UI ──────────────────────────────── */
+    #lobby {
+      background: #25252e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 500px;
+      box-sizing: border-box;
+    }
+    .lobby-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    input[type="text"] {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      background: #121216;
+      color: #fff;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    /* ── Rules Section ────────────────────────────────── */
+    #rulesSection {
+      box-sizing: border-box;
+      padding: 0 14px;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+    .rule-block {
+      background: #25252e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 15px 18px;
+      margin-bottom: 12px;
+    }
+    .rule-block h3 {
+      color: #00d2d3;
+      margin: 0 0 9px;
+      font-size: 12.5px;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+    .rule-block p {
+      margin: 0 0 7px;
+      line-height: 1.55;
+      color: #bbb;
+    }
+    .rule-block p:last-child { margin-bottom: 0; }
+    .rule-block ol, .rule-block ul { margin: 0; padding-left: 18px; }
+    .rule-block li { margin-bottom: 5px; line-height: 1.5; color: #bbb; }
+    .rule-block li:last-child { margin-bottom: 0; }
+    .rtag { color: #ff9f43; font-weight: bold; }
+    .rvalues {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-top: 6px;
+    }
+    .rvalues span {
+      background: #1e1e24; border: 1px solid #444;
+      border-radius: 4px; padding: 2px 7px;
+      font-size: 12px; color: #aaa;
+    }
+    h2 { margin-bottom: 5px; }
+    #status { margin-bottom: 10px; font-weight: bold; color: #00d2d3; }
+    #connectionStatus { font-weight: bold; color: #ff9f43; font-size: 14px; }
+    #checkAlert { 
+      min-height: 24px; 
+      font-weight: bold; 
+      color: #ff4757; 
+      font-size: 18px; 
+      margin-bottom: 10px; 
+    }
+    
+    /* GAME LAYOUT WITH CAPTURED PANELS */
+    .game-area {
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+    }
+    .captured-panel {
+      width: 70px;
+      min-height: 480px;
+      border: 2px solid #444;
+      border-radius: 6px;
+      padding: 10px 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-sizing: border-box;
+    }
+
+    .captured-panel.white-box {
+      background: #121216;
+      color: #ffffff;
+      border-color: #333;
+    }
+    .captured-panel.white-box .captured-title { color: #aaa; }
+
+    .captured-panel.black-box {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ccc;
+    }
+    .captured-panel.black-box .captured-title { color: #555; }
+
+    .captured-title {
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .captured-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    #boardContainer { position: relative; }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+      border: 3px solid #444;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .square {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .light { background-color: #eeeed2; color: #111; }
+    .dark { background-color: #769656; color: #111; }
+    
+    .selected { background-color: #f6ec36 !important; }
+    
+    .locked-piece { 
+      background-color: #d8b4fe !important; 
+      box-shadow: inset 0 0 10px #7e22ce;
+    }
+
+    .in-check {
+      background-color: #ff3838 !important;
+      animation: pulseCheck 1s infinite alternate;
+    }
+
+    @keyframes pulseCheck {
+      from { box-shadow: inset 0 0 5px #fff, 0 0 10px #ff3838; }
+      to { box-shadow: inset 0 0 15px #000, 0 0 20px #ff3838; }
+    }
+
+    .valid-move { position: relative; }
+    .valid-move::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 50%;
+      position: absolute;
+    }
+
+    #gameOverOverlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 28px;
+      font-weight: bold;
+      z-index: 10;
+      border-radius: 4px;
+    }
+
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      padding: 10px 16px;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #lockMoveBtn { background: #2ed573; color: #111; }
+    #hostBtn { background: #00d2d3; color: #111; }
+    #joinBtn { background: #ff9f43; color: #111; }
+    #copyIdBtn { background: #54a0ff; color: #fff; display: none; }
+    #undoBtn, #redoBtn { background: #54a0ff; color: #fff; }
+    #restartBtn { background: #2ed573; color: #fff; margin-top: 15px; }
+    #log {
+      margin-top: 15px;
+      font-size: 15px;
+      min-height: 24px;
+      color: #ff6b6b;
+      font-weight: bold;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div id="gameSection"><div id="gameWrapper">
+
+  <h2>Simultaneous Blind Chess (P2P Online)</h2>
+  
+  <div id="lobby">
+    <div id="connectionStatus">Status: Not Connected</div>
+    <div class="lobby-row">
+      <button id="hostBtn">Host New Game</button>
+      <button id="copyIdBtn">Copy Room Code</button>
+    </div>
+    <div class="lobby-row">
+      <input type="text" id="joinIdInput" placeholder="Enter Host Room Code">
+      <button id="joinBtn">Join Game</button>
+    </div>
+  </div>
+
+  <div id="status">Connect to a peer or host a room to begin.</div>
+  <div id="checkAlert"></div>
+
+  <div class="game-area">
+    <div class="captured-panel white-box">
+      <div class="captured-title">Captured White</div>
+      <div id="capturedWhite" class="captured-list"></div>
+    </div>
+
+    <div id="boardContainer">
+      <div id="board"></div>
+      <div id="gameOverOverlay">
+        <div id="gameOverMessage">GAME OVER</div>
+        <button id="restartBtn">Play Again</button>
+      </div>
+    </div>
+
+    <div class="captured-panel black-box">
+      <div class="captured-title">Captured Black</div>
+      <div id="capturedBlack" class="captured-list"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="lockMoveBtn" disabled>Lock & Submit Move</button>
+    <button id="undoBtn" disabled>↩ UNDO</button>
+    <button id="redoBtn" disabled>↪ REDO</button>
+  </div>
+
+  <div id="log"></div>
+
+</div></div>
+
+<div id="rulesSection">
+  <div class="rule-block">
+    <h3>🌐 PeerJS &amp; Commit-Reveal Security</h3>
+    <p>This game connects directly device-to-device via WebRTC. To guarantee secret simultaneous moves without a central server, it uses a cryptographic <strong>Commit-Reveal Scheme</strong>:</p>
+    <ol>
+      <li>When you lock your move, your browser calculates an encrypted SHA-256 hash (Commitment) of your move + secret salt and sends it to your opponent.</li>
+      <li>Neither player can read the opponent's move from the network traffic.</li>
+      <li>Once both players submit their commitments, both games automatically exchange their actual move data and secret salt (Reveal).</li>
+      <li>Each client mathematically verifies that the revealed move matches the commitment before executing turn calculations locally.</li>
+    </ol>
+  </div>
+
+  <div class="rule-block">
+    <h3>🟣 Purple Lock — No Repeat Moves</h3>
+    <p>The piece you just moved is highlighted purple and <span class="rtag">locked for one full turn</span>. You must move a different piece next turn.</p>
+  </div>
+
+  <div class="rule-block">
+    <h3>💥 Collision — Same Square, Same Moment</h3>
+    <p>If both players target the same square simultaneously, the <span class="rtag">higher-value piece wins</span> and stays. If values are equal, <span class="rtag">both pieces are destroyed</span>.</p>
+    <div class="rvalues">
+      <span>♙ Pawn = 1</span>
+      <span>♘ Knight = 3</span>
+      <span>♗ Bishop = 3</span>
+      <span>♖ Rook = 5</span>
+      <span>♕ Queen = 9</span>
+      <span>♔ King = 100</span>
+    </div>
+  </div>
+</div>
+
+<script>
+    // ── GAME CONSTANTS & INITIAL STATE ────────────────────────────────────
+    const PIECE_VALUES = { 'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 100 };
+    const SYMBOLS = {
+      'wP': '♙', 'wR': '♖', 'wN': '♘', 'wB': '♗', 'wQ': '♕', 'wK': '♔',
+      'bP': '♟', 'bR': '♜', 'bN': '♞', 'bB': '♝', 'bQ': '♛', 'bK': '♚'
+    };
+
+    const INITIAL_PIECE_COUNTS = {
+      'wP': 8, 'wR': 2, 'wN': 2, 'wB': 2, 'wQ': 1, 'wK': 1,
+      'bP': 8, 'bR': 2, 'bN': 2, 'bB': 2, 'bQ': 1, 'bK': 1
+    };
+
+    const OFFSETS = {
+      N: [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]],
+      B: [[-1, -1], [-1, 1], [1, -1], [1, 1]],
+      R: [[-1, 0], [1, 0], [0, -1], [0, 1]],
+      Q: [[-1, -1], [-1, 1], [1, -1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]],
+      K: [[-1, -1], [-1, 1], [1, -1], [1, 1], [-1, 0], [1, 0], [0, -1], [0, 1]]
+    };
+
+    const initialBoard = [
+      ['bR','bN','bB','bQ','bK','bB','bN','bR'],
+      ['bP','bP','bP','bP','bP','bP','bP','bP'],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      ['wP','wP','wP','wP','wP','wP','wP','wP'],
+      ['wR','wN','wB','wQ','wK','wB','wN','wR']
+    ];
+
+    let boardState = JSON.parse(JSON.stringify(initialBoard));
+    let selectedSquare = null;
+    let validMovesForSelected = [];
+    let isGameOver = false;
+
+    let whiteLastMovedSq = null;
+    let blackLastMovedSq = null;
+
+    let movedState = {
+      wK: false, wR_K: false, wR_Q: false,
+      bK: false, bR_K: false, bR_Q: false
+    };
+
+    let historyStack = [];
+    let historyIndex = -1;
+
+    // ── PEERJS & COMMIT-REVEAL STATE ──────────────────────────────────────
+    let peer = null;
+    let conn = null;
+    let myColor = null; // 'w' or 'b'
+    let myRoomId = null;
+
+    let localSelectedMove = null;
+    let localSalt = null;
+    let localCommitment = null;
+    let remoteCommitment = null;
+    let myMoveLocked = false;
+    let remoteMoveLocked = false;
+
+    // DOM Elements
+    const boardEl = document.getElementById('board');
+    const logEl = document.getElementById('log');
+    const statusEl = document.getElementById('status');
+    const checkAlertEl = document.getElementById('checkAlert');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const gameOverMessage = document.getElementById('gameOverMessage');
+    const restartBtn = document.getElementById('restartBtn');
+    const capturedWhiteEl = document.getElementById('capturedWhite');
+    const capturedBlackEl = document.getElementById('capturedBlack');
+    
+    const lockMoveBtn = document.getElementById('lockMoveBtn');
+    const hostBtn = document.getElementById('hostBtn');
+    const joinBtn = document.getElementById('joinBtn');
+    const copyIdBtn = document.getElementById('copyIdBtn');
+    const joinIdInput = document.getElementById('joinIdInput');
+    const connectionStatusEl = document.getElementById('connectionStatus');
+
+    // ── CRYPTOGRAPHIC COMMIT-REVEAL HELPERS ──────────────────────────────
+    function generateSalt() {
+      const array = new Uint32Array(4);
+      window.crypto.getRandomValues(array);
+      return Array.from(array, dec => dec.toString(16)).join('');
+    }
+
+    async function createCommitment(moveObj, salt) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(JSON.stringify(moveObj) + salt);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // ── PEERJS NETWORKING LOGIC ───────────────────────────────────────────
+    hostBtn.addEventListener('click', () => {
+      connectionStatusEl.textContent = "Status: Creating Room...";
+      peer = new Peer();
+
+      peer.on('open', (id) => {
+        myRoomId = id;
+        myColor = 'w';
+        connectionStatusEl.textContent = `Status: Room Created! Room Code: ${id}`;
+        copyIdBtn.style.display = 'inline-block';
+        statusEl.textContent = "Waiting for Player 2 (Black) to join...";
+      });
+
+      peer.on('connection', (c) => {
+        conn = c;
+        setupConnectionListeners();
+      });
+
+      peer.on('error', (err) => {
+        connectionStatusEl.textContent = `Error: ${err.type}`;
+      });
+    });
+
+    joinBtn.addEventListener('click', () => {
+      const targetId = joinIdInput.value.trim();
+      if (!targetId) {
+        alert("Please enter a valid Host Room Code.");
+        return;
+      }
+
+      connectionStatusEl.textContent = "Status: Connecting to Host...";
+      peer = new Peer();
+
+      peer.on('open', () => {
+        conn = peer.connect(targetId);
+        myColor = 'b';
+        setupConnectionListeners();
+      });
+
+      peer.on('error', (err) => {
+        connectionStatusEl.textContent = `Connection Error: ${err.type}`;
+      });
+    });
+
+    copyIdBtn.addEventListener('click', () => {
+      if (myRoomId) {
+        navigator.clipboard.writeText(myRoomId);
+        alert("Room Code copied to clipboard!");
+      }
+    });
+
+    function setupConnectionListeners() {
+      conn.on('open', () => {
+        connectionStatusEl.textContent = `Connected! You are playing as ${myColor === 'w' ? 'WHITE ♔' : 'BLACK ♚'}`;
+        statusEl.textContent = "Game started! Select your move.";
+        renderBoard();
+      });
+
+      conn.on('data', async (data) => {
+        if (data.type === 'COMMIT') {
+          remoteCommitment = data.commitment;
+          remoteMoveLocked = true;
+          logEl.textContent = "Opponent has locked in their move!";
+          checkAndTriggerReveal();
+        } 
+        else if (data.type === 'REVEAL') {
+          await handleReveal(data.move, data.salt);
+        }
+        else if (data.type === 'RESTART') {
+          resetGameInternal();
+          logEl.textContent = "Opponent restarted the game.";
+        }
+      });
+
+      conn.on('close', () => {
+        connectionStatusEl.textContent = "Status: Opponent Disconnected.";
+        statusEl.textContent = "Connection lost.";
+        lockMoveBtn.disabled = true;
+      });
+    }
+
+    // ── COMMIT / REVEAL EXCHANGE ──────────────────────────────────────────
+    lockMoveBtn.addEventListener('click', async () => {
+      if (!localSelectedMove) {
+        logEl.textContent = "Please select a move on the board first!";
+        return;
+      }
+
+      localSalt = generateSalt();
+      localCommitment = await createCommitment(localSelectedMove, localSalt);
+      myMoveLocked = true;
+
+      lockMoveBtn.disabled = true;
+      logEl.textContent = "Your move is locked! Waiting for opponent...";
+
+      conn.send({
+        type: 'COMMIT',
+        commitment: localCommitment
+      });
+
+      checkAndTriggerReveal();
+    });
+
+    function checkAndTriggerReveal() {
+      if (myMoveLocked && remoteMoveLocked) {
+        conn.send({
+          type: 'REVEAL',
+          move: localSelectedMove,
+          salt: localSalt
+        });
+      }
+    }
+
+    async function handleReveal(remoteMove, remoteSalt) {
+      const expectedHash = await createCommitment(remoteMove, remoteSalt);
+      if (expectedHash !== remoteCommitment) {
+        alert("SECURITY ALERT: Opponent move hash mismatch! Potential tampering detected.");
+        return;
+      }
+
+      const whiteMove = (myColor === 'w') ? localSelectedMove : remoteMove;
+      const blackMove = (myColor === 'b') ? localSelectedMove : remoteMove;
+
+      executeTurn(whiteMove, blackMove);
+
+      // Reset turn commitment states
+      localSelectedMove = null;
+      localSalt = null;
+      localCommitment = null;
+      remoteCommitment = null;
+      myMoveLocked = false;
+      remoteMoveLocked = false;
+      selectedSquare = null;
+      validMovesForSelected = [];
+
+      if (!isGameOver) {
+        statusEl.textContent = "Turn executed! Select your next move.";
+      }
+    }
+
+    // ── CHESS CORE RULES & UTILITIES ─────────────────────────────────────
+    function isInBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+
+    function getStandardMoves(board, r, c) {
+      const pieceStr = board[r][c];
+      if (!pieceStr) return [];
+
+      const color = pieceStr[0];
+      const type = pieceStr[1];
+      const moves = [];
+
+      if (type === 'P') {
+        const dir = (color === 'w') ? -1 : 1;
+        if (isInBounds(r + dir, c) && !board[r + dir][c]) {
+          moves.push({ r: r + dir, c: c });
+          const startRank = (color === 'w') ? 6 : 1;
+          if (r === startRank && !board[r + (2 * dir)][c]) {
+            moves.push({ r: r + (2 * dir), c: c });
+          }
+        }
+        for (let dc of [-1, 1]) {
+          if (isInBounds(r + dir, c + dc)) {
+            const target = board[r + dir][c + dc];
+            if (target && target[0] !== color) {
+              moves.push({ r: r + dir, c: c + dc });
+            }
+          }
+        }
+        return moves;
+      }
+
+      if (type === 'N' || type === 'K') {
+        for (let [dr, dc] of OFFSETS[type]) {
+          const tr = r + dr, tc = c + dc;
+          if (isInBounds(tr, tc)) {
+            const target = board[tr][tc];
+            if (!target || target[0] !== color) moves.push({ r: tr, c: tc });
+          }
+        }
+        return moves;
+      }
+
+      if (type === 'R' || type === 'B' || type === 'Q') {
+        for (let [dr, dc] of OFFSETS[type]) {
+          let step = 1;
+          while (true) {
+            const tr = r + (dr * step), tc = c + (dc * step);
+            if (!isInBounds(tr, tc)) break;
+            const target = board[tr][tc];
+            if (!target) {
+              moves.push({ r: tr, c: tc });
+            } else {
+              if (target[0] !== color) moves.push({ r: tr, c: tc });
+              break;
+            }
+            step++;
+          }
+        }
+        return moves;
+      }
+      return moves;
+    }
+
+    function isSquareAttacked(color, targetR, targetC, board) {
+      const enemyColor = color === 'w' ? 'b' : 'w';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (p && p[0] === enemyColor) {
+            const moves = getStandardMoves(board, r, c);
+            if (moves.some(m => m.r === targetR && m.c === targetC)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function isKingInCheck(color, board) {
+      let kingPos = null;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (board[r][c] === color + 'K') {
+            kingPos = { r, c };
+            break;
+          }
+        }
+        if (kingPos) break;
+      }
+      if (!kingPos) return { inCheck: false, pos: null };
+
+      const inCheck = isSquareAttacked(color, kingPos.r, kingPos.c, board);
+      return { inCheck, pos: kingPos };
+    }
+
+    function getCastlingMoves(color, board) {
+      const moves = [];
+      const row = (color === 'w') ? 7 : 0;
+
+      if (board[row][4] !== color + 'K') return moves;
+      if (color === 'w' && movedState.wK) return moves;
+      if (color === 'b' && movedState.bK) return moves;
+
+      const lastMoved = (color === 'w') ? whiteLastMovedSq : blackLastMovedSq;
+      if (lastMoved && lastMoved.r === row && lastMoved.c === 4) return moves;
+
+      if (isKingInCheck(color, board).inCheck) return moves;
+
+      const kRookMoved = color === 'w' ? movedState.wR_K : movedState.bR_K;
+      const kRookSqLocked = lastMoved && lastMoved.r === row && lastMoved.c === 7;
+      if (!kRookMoved && !kRookSqLocked && board[row][7] === color + 'R') {
+        if (!board[row][5] && !board[row][6]) {
+          if (!isSquareAttacked(color, row, 5, board) && !isSquareAttacked(color, row, 6, board)) {
+            moves.push({ r: row, c: 6, isCastling: true, side: 'K' });
+          }
+        }
+      }
+
+      const qRookMoved = color === 'w' ? movedState.wR_Q : movedState.bR_Q;
+      const qRookSqLocked = lastMoved && lastMoved.r === row && lastMoved.c === 0;
+      if (!qRookMoved && !qRookSqLocked && board[row][0] === color + 'R') {
+        if (!board[row][1] && !board[row][2] && !board[row][3]) {
+          if (!isSquareAttacked(color, row, 3, board) && !isSquareAttacked(color, row, 2, board)) {
+            moves.push({ r: row, c: 2, isCastling: true, side: 'Q' });
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    function filterMovesForKingSafety(color, r, c, moves, board) {
+      const piece = board[r][c];
+      if (!piece) return moves;
+
+      return moves.filter(move => {
+        if (move.isCastling) return true;
+
+        const tempBoard = JSON.parse(JSON.stringify(board));
+        tempBoard[r][c] = null;
+        tempBoard[move.r][move.c] = piece;
+
+        return !isKingInCheck(color, tempBoard).inCheck;
+      });
+    }
+
+    function hasAnyLegalMove(color, board, lockedSq) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (!p || p[0] !== color) continue;
+          if (lockedSq && lockedSq.r === r && lockedSq.c === c) continue;
+
+          let rawMoves = getStandardMoves(board, r, c);
+          if (p[1] === 'K') rawMoves = rawMoves.concat(getCastlingMoves(color, board));
+
+          if (filterMovesForKingSafety(color, r, c, rawMoves, board).length > 0) return true;
+        }
+      }
+      return false;
+    }
+
+    function evaluateChecks() {
+      if (isGameOver) return { whiteCheck: { inCheck: false }, blackCheck: { inCheck: false } };
+
+      const whiteCheck = isKingInCheck('w', boardState);
+      const blackCheck = isKingInCheck('b', boardState);
+
+      let alertText = "";
+      if (whiteCheck.inCheck && blackCheck.inCheck) {
+        alertText = "⚠️ DOUBLE CHECK! Both Kings are in Check!";
+      } else if (whiteCheck.inCheck) {
+        alertText = "⚠️ CHECK! White King is under attack!";
+      } else if (blackCheck.inCheck) {
+        alertText = "⚠️ CHECK! Black King is under attack!";
+      }
+      
+      checkAlertEl.textContent = alertText;
+      return { whiteCheck, blackCheck };
+    }
+
+    function updateCapturedUI() {
+      const currentCounts = {};
+      for (let key in INITIAL_PIECE_COUNTS) currentCounts[key] = 0;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = boardState[r][c];
+          if (p) currentCounts[p]++;
+        }
+      }
+
+      capturedWhiteEl.innerHTML = '';
+      capturedBlackEl.innerHTML = '';
+
+      for (let p in INITIAL_PIECE_COUNTS) {
+        const missingCount = INITIAL_PIECE_COUNTS[p] - currentCounts[p];
+        for (let i = 0; i < missingCount; i++) {
+          const span = document.createElement('span');
+          span.textContent = SYMBOLS[p];
+          if (p[0] === 'w') {
+            capturedWhiteEl.appendChild(span);
+          } else {
+            capturedBlackEl.appendChild(span);
+          }
+        }
+      }
+    }
+
+    function checkGameOver() {
+      let whiteKingAlive = false;
+      let blackKingAlive = false;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (boardState[r][c] === 'wK') whiteKingAlive = true;
+          if (boardState[r][c] === 'bK') blackKingAlive = true;
+        }
+      }
+
+      if (!whiteKingAlive && !blackKingAlive) {
+        triggerGameOver("💥 DRAW! Both Kings were simultaneously destroyed!");
+        return true;
+      } else if (!whiteKingAlive) {
+        triggerGameOver("♚ BLACK WINS! White King eliminated!");
+        return true;
+      } else if (!blackKingAlive) {
+        triggerGameOver("♔ WHITE WINS! Black King eliminated!");
+        return true;
+      }
+
+      const wCheck    = isKingInCheck('w', boardState);
+      const bCheck    = isKingInCheck('b', boardState);
+      const wHasMoves = hasAnyLegalMove('w', boardState, whiteLastMovedSq);
+      const bHasMoves = hasAnyLegalMove('b', boardState, blackLastMovedSq);
+
+      if (!wHasMoves && !bHasMoves) {
+        if (wCheck.inCheck && bCheck.inCheck) {
+          triggerGameOver("⚔️ DOUBLE CHECKMATE! DRAW!");
+        } else if (wCheck.inCheck) {
+          triggerGameOver("♚ CHECKMATE! BLACK WINS!");
+        } else if (bCheck.inCheck) {
+          triggerGameOver("♔ CHECKMATE! WHITE WINS!");
+        } else {
+          triggerGameOver("🤝 STALEMATE! DRAW — Neither side has legal moves.");
+        }
+        return true;
+      } else if (!wHasMoves) {
+        if (wCheck.inCheck) {
+          triggerGameOver("♚ CHECKMATE! BLACK WINS!");
+        } else {
+          triggerGameOver("🤝 STALEMATE! DRAW — White has no legal moves.");
+        }
+        return true;
+      } else if (!bHasMoves) {
+        if (bCheck.inCheck) {
+          triggerGameOver("♔ CHECKMATE! WHITE WINS!");
+        } else {
+          triggerGameOver("🤝 STALEMATE! DRAW — Black has no legal moves.");
+        }
+        return true;
+      }
+
+      gameOverOverlay.style.display = 'none';
+      isGameOver = false;
+      return false;
+    }
+
+    function triggerGameOver(msg) {
+      isGameOver = true;
+      gameOverMessage.textContent = msg;
+      gameOverOverlay.style.display = 'flex';
+      statusEl.textContent = "GAME OVER";
+      checkAlertEl.textContent = "";
+      lockMoveBtn.disabled = true;
+    }
+
+    // ── SIMULTANEOUS TURN EXECUTION ───────────────────────────────────────
+    function executeTurn(w, b) {
+      let turnLog = "";
+
+      function updatePieceMoved(move) {
+        const p = move.piece;
+        const color = p[0];
+        if (p[1] === 'K') {
+          if (color === 'w') movedState.wK = true;
+          else movedState.bK = true;
+        } else if (p[1] === 'R') {
+          if (color === 'w') {
+            if (move.from.r === 7 && move.from.c === 0) movedState.wR_Q = true;
+            if (move.from.r === 7 && move.from.c === 7) movedState.wR_K = true;
+          } else {
+            if (move.from.r === 0 && move.from.c === 0) movedState.bR_Q = true;
+            if (move.from.r === 0 && move.from.c === 7) movedState.bR_K = true;
+          }
+        }
+      }
+
+      updatePieceMoved(w);
+      updatePieceMoved(b);
+
+      boardState[w.from.r][w.from.c] = null;
+      boardState[b.from.r][b.from.c] = null;
+
+      if (w.isCastling) {
+        const row = w.from.r;
+        if (w.side === 'K') {
+          boardState[row][7] = null;
+          boardState[row][5] = 'wR';
+        } else {
+          boardState[row][0] = null;
+          boardState[row][3] = 'wR';
+        }
+      }
+
+      if (b.isCastling) {
+        const row = b.from.r;
+        if (b.side === 'K') {
+          boardState[row][7] = null;
+          boardState[row][5] = 'bR';
+        } else {
+          boardState[row][0] = null;
+          boardState[row][3] = 'bR';
+        }
+      }
+
+      // Collision Logic
+      if (w.to.r === b.to.r && w.to.c === b.to.c) {
+        const wVal = PIECE_VALUES[w.piece[1]];
+        const bVal = PIECE_VALUES[b.piece[1]];
+
+        if (wVal > bVal) {
+          boardState[w.to.r][w.to.c] = w.piece;
+          turnLog = `COLLISION at (${w.to.r},${w.to.c})! White ${w.piece[1]} destroyed Black ${b.piece[1]}!`;
+        } else if (bVal > wVal) {
+          boardState[b.to.r][b.to.c] = b.piece;
+          turnLog = `COLLISION at (${b.to.r},${b.to.c})! Black ${b.piece[1]} destroyed White ${w.piece[1]}!`;
+        } else {
+          boardState[w.to.r][w.to.c] = null;
+          turnLog = `COLLISION at (${w.to.r},${w.to.c})! Both pieces of equal rank were DESTROYED!`;
+        }
+      } else {
+        boardState[w.to.r][w.to.c] = w.piece;
+        boardState[b.to.r][b.to.c] = b.piece;
+        turnLog = "Both moves executed simultaneously!";
+      }
+
+      whiteLastMovedSq = (boardState[w.to.r][w.to.c] === w.piece) ? { r: w.to.r, c: w.to.c } : null;
+      blackLastMovedSq = (boardState[b.to.r][b.to.c] === b.piece) ? { r: b.to.r, c: b.to.c } : null;
+
+      saveSnapshot(turnLog);
+      logEl.textContent = turnLog;
+
+      checkGameOver();
+      renderBoard();
+    }
+
+    // ── BOARD INTERACTIONS ───────────────────────────────────────────────
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      const checks = evaluateChecks();
+      updateCapturedUI();
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const sq = document.createElement('div');
+          sq.className = `square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
+          
+          const piece = boardState[r][c];
+          if (piece) sq.textContent = SYMBOLS[piece];
+
+          if ((whiteLastMovedSq && whiteLastMovedSq.r === r && whiteLastMovedSq.c === c) ||
+              (blackLastMovedSq && blackLastMovedSq.r === r && blackLastMovedSq.c === c)) {
+            sq.classList.add('locked-piece');
+          }
+
+          if (!isGameOver && checks.whiteCheck.inCheck && checks.whiteCheck.pos && checks.whiteCheck.pos.r === r && checks.whiteCheck.pos.c === c) {
+            sq.classList.add('in-check');
+          }
+          if (!isGameOver && checks.blackCheck.inCheck && checks.blackCheck.pos && checks.blackCheck.pos.r === r && checks.blackCheck.pos.c === c) {
+            sq.classList.add('in-check');
+          }
+
+          if (selectedSquare && selectedSquare.r === r && selectedSquare.c === c) {
+            sq.classList.add('selected');
+          }
+
+          if (validMovesForSelected.some(m => m.r === r && m.c === c)) {
+            sq.classList.add('valid-move');
+          }
+
+          sq.addEventListener('click', () => handleSquareClick(r, c));
+          boardEl.appendChild(sq);
+        }
+      }
+    }
+
+    function handleSquareClick(r, c) {
+      if (isGameOver || !conn || myMoveLocked) return;
+
+      const piece = boardState[r][c];
+
+      if (piece && piece[0] === myColor) {
+        const isLockedSq = (myColor === 'w' && whiteLastMovedSq && whiteLastMovedSq.r === r && whiteLastMovedSq.c === c) ||
+                           (myColor === 'b' && blackLastMovedSq && blackLastMovedSq.r === r && blackLastMovedSq.c === c);
+
+        if (isLockedSq) {
+          logEl.textContent = "⛔ PURPLE SQUARE: Piece moved last turn! Pick another piece.";
+          selectedSquare = null;
+          validMovesForSelected = [];
+          renderBoard();
+          return;
+        }
+
+        selectedSquare = { r, c, piece };
+        let rawMoves = getStandardMoves(boardState, r, c);
+        if (piece[1] === 'K') {
+          rawMoves = rawMoves.concat(getCastlingMoves(myColor, boardState));
+        }
+        validMovesForSelected = filterMovesForKingSafety(myColor, r, c, rawMoves, boardState);
+      } 
+      else if (selectedSquare) {
+        const moveChoice = validMovesForSelected.find(m => m.r === r && m.c === c);
+        if (moveChoice) {
+          localSelectedMove = {
+            from: { r: selectedSquare.r, c: selectedSquare.c },
+            to: { r, c },
+            piece: selectedSquare.piece,
+            isCastling: !!moveChoice.isCastling,
+            side: moveChoice.side || null
+          };
+          
+          const moveDesc = moveChoice.isCastling 
+            ? `CASTLING (${moveChoice.side === 'K' ? 'Kingside' : 'Queenside'})`
+            : `(${selectedSquare.r},${selectedSquare.c}) -> (${r},${c})`;
+          logEl.textContent = `Selected Move: ${moveDesc}. Click 'Lock & Submit Move'.`;
+
+          lockMoveBtn.disabled = false;
+          selectedSquare = null;
+          validMovesForSelected = [];
+        }
+      }
+      renderBoard();
+    }
+
+    // ── HISTORY SNAPSHOTS & RESTART ──────────────────────────────────────
+    function saveSnapshot(logMessage = "") {
+      const snapshot = {
+        boardState: JSON.parse(JSON.stringify(boardState)),
+        whiteLastMovedSq: whiteLastMovedSq ? { ...whiteLastMovedSq } : null,
+        blackLastMovedSq: blackLastMovedSq ? { ...blackLastMovedSq } : null,
+        movedState: { ...movedState },
+        logMessage: logMessage
+      };
+
+      historyStack = historyStack.slice(0, historyIndex + 1);
+      historyStack.push(snapshot);
+      historyIndex++;
+      updateUndoRedoUI();
+    }
+
+    function updateUndoRedoUI() {
+      undoBtn.disabled = historyIndex <= 0;
+      redoBtn.disabled = historyIndex >= historyStack.length - 1;
+    }
+
+    function loadSnapshot(index) {
+      const snapshot = historyStack[index];
+      boardState = JSON.parse(JSON.stringify(snapshot.boardState));
+      whiteLastMovedSq = snapshot.whiteLastMovedSq ? { ...snapshot.whiteLastMovedSq } : null;
+      blackLastMovedSq = snapshot.blackLastMovedSq ? { ...snapshot.blackLastMovedSq } : null;
+      movedState = { ...snapshot.movedState };
+      logEl.textContent = snapshot.logMessage || "Navigated turn history.";
+      
+      localSelectedMove = null;
+      selectedSquare = null;
+      validMovesForSelected = [];
+
+      checkGameOver();
+      renderBoard();
+      updateUndoRedoUI();
+    }
+
+    undoBtn.addEventListener('click', () => {
+      if (historyIndex > 0) {
+        historyIndex--;
+        loadSnapshot(historyIndex);
+      }
+    });
+
+    redoBtn.addEventListener('click', () => {
+      if (historyIndex < historyStack.length - 1) {
+        historyIndex++;
+        loadSnapshot(historyIndex);
+      }
+    });
+
+    function resetGameInternal() {
+      boardState = JSON.parse(JSON.stringify(initialBoard));
+      historyStack = [];
+      historyIndex = -1;
+      whiteLastMovedSq = null;
+      blackLastMovedSq = null;
+      localSelectedMove = null;
+      localSalt = null;
+      localCommitment = null;
+      remoteCommitment = null;
+      myMoveLocked = false;
+      remoteMoveLocked = false;
+      movedState = {
+        wK: false, wR_K: false, wR_Q: false,
+        bK: false, bR_K: false, bR_Q: false
+      };
+      saveSnapshot("Game restarted.");
+      loadSnapshot(0);
+    }
+
+    restartBtn.addEventListener('click', () => {
+      resetGameInternal();
+      if (conn) {
+        conn.send({ type: 'RESTART' });
+      }
+    });
+
+    // Initial setup
+    saveSnapshot("Game started.");
+    renderBoard();
+
+    // Responsive scaling wrapper
+    function scaleGame() {
+      const wrapper = document.getElementById('gameWrapper');
+      const section = document.getElementById('gameSection');
+      const rules   = document.getElementById('rulesSection');
+
+      wrapper.style.transform  = 'none';
+      wrapper.style.marginLeft = '0';
+      section.style.height     = 'auto';
+
+      const naturalW = wrapper.offsetWidth;
+      const naturalH = wrapper.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const scale = Math.min(vw / naturalW, vh / naturalH, 1);
+      const ml    = Math.max(0, (vw - naturalW * scale) / 2);
+
+      wrapper.style.transform       = `scale(${scale})`;
+      wrapper.style.transformOrigin = 'top left';
+      wrapper.style.marginLeft      = ml + 'px';
+      section.style.height          = (naturalH * scale) + 'px';
+
+      if (rules) {
+        rules.style.width      = Math.round(naturalW * scale) + 'px';
+        rules.style.marginLeft = ml + 'px';
+        rules.style.marginTop  = '24px';
+      }
+    }
+
+    requestAnimationFrame(scaleGame);
+    window.addEventListener('resize', scaleGame);
+  </script>
+</body>
+</html>
