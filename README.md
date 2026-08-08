@@ -106,7 +106,8 @@ Use **↩ UNDO** and **↪ REDO** to review full turn history at any point.
 ## About This Project
 
 **Invented and built in 2025 by [Tarek Nasser].**
-
+Email: malikao@gmail.com
+      t_nasser@hotmail.com
 The combination of:
 - Blind simultaneous move selection on a shared device
 - The Purple Lock (no-repeat-move) rule
