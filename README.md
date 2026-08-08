@@ -2,11 +2,12 @@
 
 # ♟ Simultaneous Blind Chess
 
-**A chess variant where both players move at the same instant — and can't see each other's choice.**
+**A chess variant where both players move at the same instant — locally or online across two devices.**
 
-[![Play Live](https://img.shields.io/badge/▶%20Play%20Live-GitHub%20Pages-00d2d3?style=for-the-badge)](https://malikaoo.github.io/simultaneous-blind-chess/)
-[![License: Non-Commercial](https://img.shields.io/badge/License-Non--Commercial-ff9f43?style=for-the-badge)](./LICENSE)
-[![HTML Only](https://img.shields.io/badge/No%20Install-Open%20%26%20Play-2ed573?style=for-the-badge)](#run-it)
+[![Play Local](https://img.shields.io/badge/📱%20Play%20Local-Pass%20%26%20Play-00d2d3?style=for-the-badge)](https://malikaoo.github.io/simultaneous-blind-chess/)
+[![Play Online](https://img.shields.io/badge/🌐%20Play%20Online-P2P%20WebRTC-ff9f43?style=for-the-badge)](https://malikaoo.github.io/simultaneous-blind-chess/online.html)
+[![License: Non-Commercial](https://img.shields.io/badge/License-Non--Commercial-54a0ff?style=for-the-badge)](./LICENSE)
+[![No Server](https://img.shields.io/badge/Serverless-GitHub%20Pages-2ed573?style=for-the-badge)](#run-it)
 
 ![Simultaneous Blind Chess gameplay screenshot](screenshot.png)
 
@@ -18,19 +19,32 @@
 
 Standard chess alternates turns. This doesn't.
 
-Both players secretly pick their move on the same device, lock it in, then press **Execute** — both pieces move at exactly the same time. That one change creates an entirely new game of psychology, prediction, and risk:
+Both players secretly pick their move—either on the same device or across two separate devices online—lock it in, and execute both moves at exactly the same time. That single change creates an entirely new game of psychology, prediction, and risk:
 
 - You must **predict intent**, not just react to position
 - Pieces can **collide** mid-board and annihilate each other
 - Both kings can be **in check simultaneously**
 - A king can actually be **physically captured**
+- **100% Serverless Online Play:** Cryptographic commit-reveal guarantees neither player can peek at the opponent's choice over the network before locking in their own.
+
+---
+
+## 🎮 Play Modes
+
+### 📱 Mode 1: Pass & Play (Same Device)
+Two players alternate using the same screen. Player 1 locks White's move, hands the device over, Player 2 locks Black's move, and both execute simultaneously.
+
+### 🌐 Mode 2: Online P2P (Two Devices)
+Play remotely across two different devices using **PeerJS (WebRTC)** directly in your browser—no backend server or account required.
+* **Room Code Matchmaking:** One player clicks **Host New Game** to generate a code, and the second player pastes that code to **Join**.
+* **Cryptographic Commit-Reveal Scheme:** When you lock your move, your browser sends a SHA-256 salted hash (Commitment) to your opponent. Only after *both* players submit their commitments do the actual moves exchange (Reveal) and verify mathematically—ensuring total secrecy.
 
 ---
 
 ## Original Rules
 
 ### Base: Standard chess
-All standard piece movements, castling, promotion, check, checkmate, and stalemate apply — plus the four new rules below.
+All standard piece movements, castling, promotion, check, checkmate, and stalemate apply — plus the rules below.
 
 ---
 
@@ -77,39 +91,42 @@ Unlike standard chess, a king can be **physically captured** here because both p
 
 ## How to Play
 
-Two players share one device.
+### 📱 Same Device (Pass & Play)
+1. **White** selects a piece and destination, then clicks **Lock White Move**.
+2. Hand the device to Player 2 — they cannot see White's choice.
+3. **Black** selects their move and clicks **Lock Black Move**.
+4. Press **EXECUTE TURN** — both moves apply simultaneously.
 
-1. **White** selects a piece and destination, then clicks **Lock White Move**
-2. Hand the device to Player 2 — they cannot see White's choice
-3. **Black** selects their move and clicks **Lock Black Move**
-4. Press **EXECUTE TURN** — both moves apply simultaneously
-5. Repeat until the game ends
-
-Use **↩ UNDO** and **↪ REDO** to review full turn history at any point.
+### 🌐 Two Devices (Online P2P)
+1. Open the **[Online Version](https://malikaoo.github.io/simultaneous-blind-chess/online.html)** on two separate devices.
+2. Player 1 clicks **Host New Game** and sends the generated Room Code to Player 2.
+3. Player 2 enters the code and clicks **Join Game**.
+4. Both players select their moves privately on their own screens and click **Lock & Submit Move**.
+5. The game automatically verifies hashes, reveals moves, and executes the turn simultaneously.
 
 ---
 
 ## Run It
 
-**No installation. No server. No dependencies.**
+**No installation. No dedicated server. No dependencies.**
 
-**Option A — Play online:**
-👉 [https://malikaoo.github.io/simultaneous-blind-chess/](https://malikaoo.github.io/simultaneous-blind-chess/)
+* 📱 **[Play Local (Pass & Play)](https://malikaoo.github.io/simultaneous-blind-chess/)**
+* 🌐 **[Play Online (Peer-to-Peer)](https://malikaoo.github.io/simultaneous-blind-chess/online.html)**
 
-**Option B — Run locally:**
-1. Download `index.html`
-2. Open it in any modern browser (Chrome, Firefox, Safari, Edge)
-3. That's it.
+**Run locally:**
+1. Clone or download the repository.
+2. Open `index.html` (Local) or `online.html` (Online P2P) in any modern web browser.
+3. Play immediately!
 
 ---
 
 ## About This Project
 
-**Invented and built in 2025 by [Tarek Nasser].**
-Email: malikao@gmail.com
-      t_nasser@hotmail.com
+**Invented and built in 2025 by [Tarek Nasser].**  
+Email: `malikao@gmail.com` | `t_nasser@hotmail.com`
+
 The combination of:
-- Blind simultaneous move selection on a shared device
+- Blind simultaneous move selection (shared device or salted WebRTC hash exchange)
 - The Purple Lock (no-repeat-move) rule
 - Collision resolution by piece value
 
@@ -127,5 +144,5 @@ See [LICENSE](./LICENSE) for full terms.
 ---
 
 <div align="center">
-<sub>Built with pure HTML, CSS, and JavaScript — no frameworks, no dependencies.</sub>
+<sub>Built with pure HTML, CSS, JavaScript, and PeerJS — zero server dependencies.</sub>
 </div>
