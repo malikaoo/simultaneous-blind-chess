@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simultaneous Blind Chess Variant — Online P2P</title>
+  <title>Simultaneous Blind Chess — Online P2P</title>
   
   <!-- PeerJS Library for WebRTC -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -18,7 +18,6 @@
       overflow-x: hidden;
     }
 
-    /* ── Viewport-fit scaling wrapper ─────────────────── */
     #gameSection {
       width: 100%;
       overflow: hidden;
@@ -41,9 +40,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       width: 100%;
-      max-width: 500px;
+      max-width: 600px;
       box-sizing: border-box;
     }
     .lobby-row {
@@ -51,16 +50,21 @@
       gap: 10px;
       width: 100%;
       justify-content: center;
+      align-items: center;
       flex-wrap: wrap;
     }
-    input[type="text"] {
+    input[type="text"], select {
       padding: 8px 12px;
-      border-radius: 4px;
+      border-radius: 5px;
       border: 1px solid #555;
       background: #121216;
       color: #fff;
       font-size: 14px;
-      text-align: center;
+      outline: none;
+    }
+    select {
+      cursor: pointer;
+      font-weight: bold;
     }
 
     /* ── Rules Section ────────────────────────────────── */
@@ -92,7 +96,6 @@
     .rule-block p:last-child { margin-bottom: 0; }
     .rule-block ol, .rule-block ul { margin: 0; padding-left: 18px; }
     .rule-block li { margin-bottom: 5px; line-height: 1.5; color: #bbb; }
-    .rule-block li:last-child { margin-bottom: 0; }
     .rtag { color: #ff9f43; font-weight: bold; }
     .rvalues {
       display: flex; flex-wrap: wrap; gap: 6px;
@@ -114,14 +117,14 @@
       margin-bottom: 10px; 
     }
     
-    /* GAME LAYOUT WITH CAPTURED PANELS */
+    /* GAME LAYOUT WITH CAPTURED PANELS & CLOCKS */
     .game-area {
       display: flex;
       align-items: flex-start;
       gap: 15px;
     }
     .captured-panel {
-      width: 70px;
+      width: 80px;
       min-height: 480px;
       border: 2px solid #444;
       border-radius: 6px;
@@ -147,11 +150,26 @@
     }
     .captured-panel.black-box .captured-title { color: #555; }
 
+    .clock-display {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 15px;
+      font-weight: bold;
+      background: #000;
+      color: #2ed573;
+      padding: 6px 4px;
+      border-radius: 4px;
+      width: 100%;
+      text-align: center;
+      margin-bottom: 10px;
+      border: 1px solid #444;
+      box-sizing: border-box;
+    }
+
     .captured-title {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: bold;
       text-transform: uppercase;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       text-align: center;
     }
     .captured-list {
@@ -159,7 +177,7 @@
       flex-wrap: wrap;
       gap: 4px;
       justify-content: center;
-      font-size: 28px;
+      font-size: 26px;
     }
 
     #boardContainer { position: relative; }
@@ -182,9 +200,7 @@
     }
     .light { background-color: #eeeed2; color: #111; }
     .dark { background-color: #769656; color: #111; }
-    
     .selected { background-color: #f6ec36 !important; }
-    
     .locked-piece { 
       background-color: #d8b4fe !important; 
       box-shadow: inset 0 0 10px #7e22ce;
@@ -219,10 +235,13 @@
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 28px;
+      font-size: 26px;
       font-weight: bold;
       z-index: 10;
       border-radius: 4px;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
     }
 
     .controls {
@@ -248,6 +267,17 @@
     #copyIdBtn { background: #54a0ff; color: #fff; display: none; }
     #undoBtn, #redoBtn { background: #54a0ff; color: #fff; }
     #restartBtn { background: #2ed573; color: #fff; margin-top: 15px; }
+    .mode-switch-btn {
+      background: #ff9f43;
+      color: #111;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
     #log {
       margin-top: 15px;
       font-size: 15px;
@@ -262,18 +292,32 @@
 <div id="gameSection"><div id="gameWrapper">
 
   <h2>Simultaneous Blind Chess (P2P Online)</h2>
-  <div style="margin-bottom: 15px;">
-    <a href="index.html" style="background: #ff9f43; color: #111; padding: 8px 14px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 13px;">
-      📱 Play Local (Same Device)
-    </a>
-  </div>
-
+  <a href="index.html" class="mode-switch-btn">📱 Switch to Local (Same Device)</a>
+  
   <div id="lobby">
     <div id="connectionStatus">Status: Not Connected</div>
+    
     <div class="lobby-row">
+      <select id="timeControlSelect">
+        <optgroup label="Classical (Total Bank)">
+          <option value="60-total" selected>60 Minutes Total (Default)</option>
+          <option value="30-total">30 Minutes Total</option>
+          <option value="15-total">15 Minutes Total</option>
+          <option value="10-total">10 Minutes Total</option>
+          <option value="5-total">5 Minutes Total (Rapid)</option>
+        </optgroup>
+        <optgroup label="Per-Turn Timers">
+          <option value="60-turn">1 Minute / Turn (Blitz)</option>
+          <option value="30-turn">30 Seconds / Turn (Blitz)</option>
+          <option value="15-turn">15 Seconds / Turn (Bullet)</option>
+        </optgroup>
+        <option value="none">Unlimited (No Clock)</option>
+      </select>
+
       <button id="hostBtn">Host New Game</button>
       <button id="copyIdBtn">Copy Room Code</button>
     </div>
+
     <div class="lobby-row">
       <input type="text" id="joinIdInput" placeholder="Enter Host Room Code">
       <button id="joinBtn">Join Game</button>
@@ -284,7 +328,9 @@
   <div id="checkAlert"></div>
 
   <div class="game-area">
+    <!-- CAPTURED WHITE PIECES (RIGHT/WHITE PANEL HAS WHITE CLOCK) -->
     <div class="captured-panel white-box">
+      <div id="whiteClock" class="clock-display">--:--</div>
       <div class="captured-title">Captured White</div>
       <div id="capturedWhite" class="captured-list"></div>
     </div>
@@ -297,7 +343,9 @@
       </div>
     </div>
 
+    <!-- CAPTURED BLACK PIECES (LEFT/BLACK PANEL HAS BLACK CLOCK) -->
     <div class="captured-panel black-box">
+      <div id="blackClock" class="clock-display">--:--</div>
       <div class="captured-title">Captured Black</div>
       <div id="capturedBlack" class="captured-list"></div>
     </div>
@@ -316,39 +364,24 @@
 <div id="rulesSection">
   <div class="rule-block">
     <h3>🌐 PeerJS &amp; Commit-Reveal Security</h3>
-    <p>This game connects directly device-to-device via WebRTC. To guarantee secret simultaneous moves without a central server, it uses a cryptographic <strong>Commit-Reveal Scheme</strong>:</p>
-    <ol>
-      <li>When you lock your move, your browser calculates an encrypted SHA-256 hash (Commitment) of your move + secret salt and sends it to your opponent.</li>
-      <li>Neither player can read the opponent's move from the network traffic.</li>
-      <li>Once both players submit their commitments, both games automatically exchange their actual move data and secret salt (Reveal).</li>
-      <li>Each client mathematically verifies that the revealed move matches the commitment before executing turn calculations locally.</li>
-    </ol>
+    <p>This game connects directly device-to-device via WebRTC using a cryptographic <strong>Commit-Reveal Scheme</strong> (SHA-256) to ensure complete secrecy until both players lock in their moves.</p>
   </div>
 
   <div class="rule-block">
-    <h3>🟣 Purple Lock — No Repeat Moves</h3>
-    <p>The piece you just moved is highlighted purple and <span class="rtag">locked for one full turn</span>. You must move a different piece next turn.</p>
-  </div>
-
-  <div class="rule-block">
-    <h3>💥 Collision — Same Square, Same Moment</h3>
-    <p>If both players target the same square simultaneously, the <span class="rtag">higher-value piece wins</span> and stays. If values are equal, <span class="rtag">both pieces are destroyed</span>.</p>
-    <div class="rvalues">
-      <span>♙ Pawn = 1</span>
-      <span>♘ Knight = 3</span>
-      <span>♗ Bishop = 3</span>
-      <span>♖ Rook = 5</span>
-      <span>♕ Queen = 9</span>
-      <span>♔ King = 100</span>
-    </div>
+    <h3>⏱️ Time Control Rules</h3>
+    <p><strong>Total Time Bank:</strong> Each player gets a shared total bank. Clocks tick down during choice selection and pause once a player submits their move.</p>
+    <p><strong>Per-Turn Timers:</strong> A fresh timer resets each round. If time runs out:</p>
+    <ul>
+      <li>If one player locked their move in time but the other didn't: <strong>The non-locked player loses on time.</strong></li>
+      <li>If neither player locked their move in time: <strong>The match is a Draw.</strong></li>
+    </ul>
   </div>
 </div>
 
 <script>
-    // ── GAME CONSTANTS & INITIAL STATE ────────────────────────────────────
     const PIECE_VALUES = { 'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 100 };
     const SYMBOLS = {
-      'wP': '♙', 'wR': '♖', 'wN': '♘', 'wB': '♗', 'wQ': '♕', 'wK': '♔',
+      'wP': '♙', 'wR': '♖', 'wN': '♘', 'wB': '♗', 'wQ': 'Q', 'wK': '♔',
       'bP': '♟', 'bR': '♜', 'bN': '♞', 'bB': '♝', 'bQ': '♛', 'bK': '♚'
     };
 
@@ -392,10 +425,10 @@
     let historyStack = [];
     let historyIndex = -1;
 
-    // ── PEERJS & COMMIT-REVEAL STATE ──────────────────────────────────────
+    // PeerJS Networking & Commit State
     let peer = null;
     let conn = null;
-    let myColor = null; // 'w' or 'b'
+    let myColor = null;
     let myRoomId = null;
 
     let localSelectedMove = null;
@@ -404,6 +437,16 @@
     let remoteCommitment = null;
     let myMoveLocked = false;
     let remoteMoveLocked = false;
+
+    // Clock System State
+    let timeControlSetting = '60-total';
+    let clockMode = 'total'; // 'total', 'turn', or 'none'
+    let initialTimeSec = 3600;
+    let whiteTimeRemaining = 3600;
+    let blackTimeRemaining = 3600;
+    let turnTimeRemaining = 60;
+    let clockInterval = null;
+    let lastTickTimestamp = null;
 
     // DOM Elements
     const boardEl = document.getElementById('board');
@@ -423,9 +466,12 @@
     const joinBtn = document.getElementById('joinBtn');
     const copyIdBtn = document.getElementById('copyIdBtn');
     const joinIdInput = document.getElementById('joinIdInput');
+    const timeControlSelect = document.getElementById('timeControlSelect');
     const connectionStatusEl = document.getElementById('connectionStatus');
+    const whiteClockEl = document.getElementById('whiteClock');
+    const blackClockEl = document.getElementById('blackClock');
 
-    // ── CRYPTOGRAPHIC COMMIT-REVEAL HELPERS ──────────────────────────────
+    // Cryptographic Helpers
     function generateSalt() {
       const array = new Uint32Array(4);
       window.crypto.getRandomValues(array);
@@ -440,26 +486,26 @@
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // ── PEERJS NETWORKING LOGIC ───────────────────────────────────────────
+    // PeerJS Setup
     hostBtn.addEventListener('click', () => {
       connectionStatusEl.textContent = "Status: Creating Room...";
+      timeControlSetting = timeControlSelect.value;
+      configureTimeControl(timeControlSetting);
+
       peer = new Peer();
 
       peer.on('open', (id) => {
         myRoomId = id;
         myColor = 'w';
-        connectionStatusEl.textContent = `Status: Room Created! Room Code: ${id}`;
+        connectionStatusEl.textContent = `Room Created! Code: ${id}`;
         copyIdBtn.style.display = 'inline-block';
         statusEl.textContent = "Waiting for Player 2 (Black) to join...";
+        timeControlSelect.disabled = true;
       });
 
       peer.on('connection', (c) => {
         conn = c;
         setupConnectionListeners();
-      });
-
-      peer.on('error', (err) => {
-        connectionStatusEl.textContent = `Error: ${err.type}`;
       });
     });
 
@@ -478,10 +524,6 @@
         myColor = 'b';
         setupConnectionListeners();
       });
-
-      peer.on('error', (err) => {
-        connectionStatusEl.textContent = `Connection Error: ${err.type}`;
-      });
     });
 
     copyIdBtn.addEventListener('click', () => {
@@ -493,13 +535,25 @@
 
     function setupConnectionListeners() {
       conn.on('open', () => {
-        connectionStatusEl.textContent = `Connected! You are playing as ${myColor === 'w' ? 'WHITE ♔' : 'BLACK ♚'}`;
+        connectionStatusEl.textContent = `Connected! Playing as ${myColor === 'w' ? 'WHITE ♔' : 'BLACK ♚'}`;
         statusEl.textContent = "Game started! Select your move.";
+        timeControlSelect.disabled = true;
+
+        if (myColor === 'w') {
+          conn.send({ type: 'INIT_CONFIG', timeControl: timeControlSetting });
+          startClockTimer();
+        }
+
         renderBoard();
       });
 
       conn.on('data', async (data) => {
-        if (data.type === 'COMMIT') {
+        if (data.type === 'INIT_CONFIG') {
+          timeControlSetting = data.timeControl;
+          configureTimeControl(timeControlSetting);
+          startClockTimer();
+        }
+        else if (data.type === 'COMMIT') {
           remoteCommitment = data.commitment;
           remoteMoveLocked = true;
           logEl.textContent = "Opponent has locked in their move!";
@@ -518,10 +572,120 @@
         connectionStatusEl.textContent = "Status: Opponent Disconnected.";
         statusEl.textContent = "Connection lost.";
         lockMoveBtn.disabled = true;
+        stopClockTimer();
       });
     }
 
-    // ── COMMIT / REVEAL EXCHANGE ──────────────────────────────────────────
+    // CLOCK LOGIC & FORMATTING
+    function configureTimeControl(val) {
+      if (val === 'none') {
+        clockMode = 'none';
+        whiteClockEl.textContent = '--:--';
+        blackClockEl.textContent = '--:--';
+        return;
+      }
+
+      const parts = val.split('-');
+      const numMinutes = parseInt(parts[0], 10);
+      clockMode = parts[1];
+
+      if (clockMode === 'total') {
+        initialTimeSec = numMinutes * 60;
+        whiteTimeRemaining = initialTimeSec;
+        blackTimeRemaining = initialTimeSec;
+      } else if (clockMode === 'turn') {
+        initialTimeSec = numMinutes; // in seconds
+        turnTimeRemaining = initialTimeSec;
+      }
+
+      updateClockDisplay();
+    }
+
+    function formatTime(totalSec) {
+      if (totalSec < 0) totalSec = 0;
+      const m = Math.floor(totalSec / 60);
+      const s = Math.floor(totalSec % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updateClockDisplay() {
+      if (clockMode === 'none') return;
+
+      if (clockMode === 'total') {
+        whiteClockEl.textContent = formatTime(whiteTimeRemaining);
+        blackClockEl.textContent = formatTime(blackTimeRemaining);
+      } else if (clockMode === 'turn') {
+        whiteClockEl.textContent = formatTime(turnTimeRemaining);
+        blackClockEl.textContent = formatTime(turnTimeRemaining);
+      }
+    }
+
+    function startClockTimer() {
+      stopClockTimer();
+      if (clockMode === 'none') return;
+
+      lastTickTimestamp = Date.now();
+      clockInterval = setInterval(tickClock, 200);
+    }
+
+    function stopClockTimer() {
+      if (clockInterval) clearInterval(clockInterval);
+      clockInterval = null;
+    }
+
+    function tickClock() {
+      if (isGameOver || clockMode === 'none') return;
+
+      const now = Date.now();
+      const deltaSec = (now - lastTickTimestamp) / 1000;
+      lastTickTimestamp = now;
+
+      if (clockMode === 'total') {
+        if (!myMoveLocked) {
+          if (myColor === 'w') whiteTimeRemaining -= deltaSec;
+          else blackTimeRemaining -= deltaSec;
+        }
+        if (!remoteMoveLocked) {
+          if (myColor === 'w') blackTimeRemaining -= deltaSec;
+          else whiteTimeRemaining -= deltaSec;
+        }
+
+        updateClockDisplay();
+
+        if (whiteTimeRemaining <= 0 || blackTimeRemaining <= 0) {
+          stopClockTimer();
+          if (whiteTimeRemaining <= 0 && blackTimeRemaining <= 0) {
+            triggerGameOver("⏱️ TIME EXPIRED! Both players ran out of time — DRAW!");
+          } else if (whiteTimeRemaining <= 0) {
+            triggerGameOver("⏱️ TIME EXPIRED! Black wins on time!");
+          } else {
+            triggerGameOver("⏱️ TIME EXPIRED! White wins on time!");
+          }
+        }
+      } 
+      else if (clockMode === 'turn') {
+        turnTimeRemaining -= deltaSec;
+        updateClockDisplay();
+
+        if (turnTimeRemaining <= 0) {
+          stopClockTimer();
+          turnTimeRemaining = 0;
+          updateClockDisplay();
+
+          if (!myMoveLocked && !remoteMoveLocked) {
+            triggerGameOver("⏱️ TURN TIMEOUT! Neither player locked in a move — DRAW!");
+          } else if (myMoveLocked && !remoteMoveLocked) {
+            const winner = myColor === 'w' ? 'WHITE' : 'BLACK';
+            triggerGameOver(`⏱️ TURN TIMEOUT! Opponent failed to move in time — ${winner} WINS!`);
+          } else if (!myMoveLocked && remoteMoveLocked) {
+            const winner = myColor === 'w' ? 'BLACK' : 'WHITE';
+            triggerGameOver(`⏱️ TURN TIMEOUT! You failed to move in time — ${winner} WINS!`);
+          }
+        }
+      }
+    }
+
+    // Commit/Reveal Logic
     lockMoveBtn.addEventListener('click', async () => {
       if (!localSelectedMove) {
         logEl.textContent = "Please select a move on the board first!";
@@ -565,7 +729,6 @@
 
       executeTurn(whiteMove, blackMove);
 
-      // Reset turn commitment states
       localSelectedMove = null;
       localSalt = null;
       localCommitment = null;
@@ -575,12 +738,17 @@
       selectedSquare = null;
       validMovesForSelected = [];
 
+      if (clockMode === 'turn') {
+        turnTimeRemaining = initialTimeSec;
+      }
+      startClockTimer();
+
       if (!isGameOver) {
         statusEl.textContent = "Turn executed! Select your next move.";
       }
     }
 
-    // ── CHESS CORE RULES & UTILITIES ─────────────────────────────────────
+    // Standard Chess Engine & Helpers
     function isInBounds(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
 
     function getStandardMoves(board, r, c) {
@@ -851,6 +1019,7 @@
 
     function triggerGameOver(msg) {
       isGameOver = true;
+      stopClockTimer();
       gameOverMessage.textContent = msg;
       gameOverOverlay.style.display = 'flex';
       statusEl.textContent = "GAME OVER";
@@ -858,7 +1027,7 @@
       lockMoveBtn.disabled = true;
     }
 
-    // ── SIMULTANEOUS TURN EXECUTION ───────────────────────────────────────
+    // Simultaneous Turn Execution
     function executeTurn(w, b) {
       let turnLog = "";
 
@@ -938,7 +1107,7 @@
       renderBoard();
     }
 
-    // ── BOARD INTERACTIONS ───────────────────────────────────────────────
+    // Board Render & Interactivity
     function renderBoard() {
       boardEl.innerHTML = '';
       const checks = evaluateChecks();
@@ -1026,7 +1195,7 @@
       renderBoard();
     }
 
-    // ── HISTORY SNAPSHOTS & RESTART ──────────────────────────────────────
+    // History Snapshots & Reset
     function saveSnapshot(logMessage = "") {
       const snapshot = {
         boardState: JSON.parse(JSON.stringify(boardState)),
@@ -1094,6 +1263,8 @@
         wK: false, wR_K: false, wR_Q: false,
         bK: false, bR_K: false, bR_Q: false
       };
+      configureTimeControl(timeControlSetting);
+      if (conn) startClockTimer();
       saveSnapshot("Game restarted.");
       loadSnapshot(0);
     }
@@ -1109,7 +1280,7 @@
     saveSnapshot("Game started.");
     renderBoard();
 
-    // Responsive scaling wrapper
+    // Auto-scaling wrapper
     function scaleGame() {
       const wrapper = document.getElementById('gameWrapper');
       const section = document.getElementById('gameSection');
