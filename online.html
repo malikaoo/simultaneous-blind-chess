@@ -61,10 +61,12 @@
       color: #fff;
       font-size: 14px;
       outline: none;
+      text-transform: uppercase;
     }
     select {
       cursor: pointer;
       font-weight: bold;
+      text-transform: none;
     }
 
     /* ── Rules Section ────────────────────────────────── */
@@ -180,7 +182,12 @@
       font-size: 26px;
     }
 
-    #boardContainer { position: relative; }
+    #boardContainer { 
+      position: relative; 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
     #board {
       display: grid;
       grid-template-columns: repeat(8, 60px);
@@ -226,22 +233,29 @@
       position: absolute;
     }
 
-    #gameOverOverlay {
+    /* Sleek Top Banner for Game Over Announcement */
+    #gameOverBanner {
       display: none;
       position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.85);
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 26px;
-      font-weight: bold;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(20, 20, 25, 0.95);
+      border-bottom: 2px solid #00d2d3;
+      padding: 8px 12px;
       z-index: 10;
-      border-radius: 4px;
-      text-align: center;
-      padding: 20px;
       box-sizing: border-box;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #gameOverMessage {
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: left;
     }
 
     .controls {
@@ -266,7 +280,13 @@
     #joinBtn { background: #ff9f43; color: #111; }
     #copyIdBtn { background: #54a0ff; color: #fff; display: none; }
     #undoBtn, #redoBtn { background: #54a0ff; color: #fff; }
-    #restartBtn { background: #2ed573; color: #fff; margin-top: 15px; }
+    #restartBtn { 
+      background: #2ed573; 
+      color: #111; 
+      padding: 6px 12px;
+      font-size: 13px;
+      margin-top: 0;
+    }
     .mode-switch-btn {
       background: #ff9f43;
       color: #111;
@@ -319,7 +339,7 @@
     </div>
 
     <div class="lobby-row">
-      <input type="text" id="joinIdInput" placeholder="Enter Host Room Code">
+      <input type="text" id="joinIdInput" placeholder="Enter Host Room Code" maxlength="6">
       <button id="joinBtn">Join Game</button>
     </div>
   </div>
@@ -336,11 +356,11 @@
     </div>
 
     <div id="boardContainer">
-      <div id="board"></div>
-      <div id="gameOverOverlay">
+      <div id="gameOverBanner">
         <div id="gameOverMessage">GAME OVER</div>
         <button id="restartBtn">Play Again</button>
       </div>
+      <div id="board"></div>
     </div>
 
     <!-- CAPTURED BLACK PIECES (LEFT/BLACK PANEL HAS BLACK CLOCK) -->
@@ -380,8 +400,10 @@
 
 <script>
     const PIECE_VALUES = { 'P': 1, 'N': 3, 'B': 3, 'R': 5, 'Q': 9, 'K': 100 };
+    
+    // FIXED: Updated SYMBOLS map with Unicode chess icons for Queens and all pieces
     const SYMBOLS = {
-      'wP': '♙', 'wR': '♖', 'wN': '♘', 'wB': '♗', 'wQ': 'Q', 'wK': '♔',
+      'wP': '♙', 'wR': '♖', 'wN': '♘', 'wB': '♗', 'wQ': '♕', 'wK': '♔',
       'bP': '♟', 'bR': '♜', 'bN': '♞', 'bB': '♝', 'bQ': '♛', 'bK': '♚'
     };
 
@@ -440,7 +462,7 @@
 
     // Clock System State
     let timeControlSetting = '60-total';
-    let clockMode = 'total'; // 'total', 'turn', or 'none'
+    let clockMode = 'total';
     let initialTimeSec = 3600;
     let whiteTimeRemaining = 3600;
     let blackTimeRemaining = 3600;
@@ -455,7 +477,7 @@
     const checkAlertEl = document.getElementById('checkAlert');
     const undoBtn = document.getElementById('undoBtn');
     const redoBtn = document.getElementById('redoBtn');
-    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const gameOverBanner = document.getElementById('gameOverBanner');
     const gameOverMessage = document.getElementById('gameOverMessage');
     const restartBtn = document.getElementById('restartBtn');
     const capturedWhiteEl = document.getElementById('capturedWhite');
@@ -470,6 +492,16 @@
     const connectionStatusEl = document.getElementById('connectionStatus');
     const whiteClockEl = document.getElementById('whiteClock');
     const blackClockEl = document.getElementById('blackClock');
+
+    // Room Code Generator (32-character pool: excludes 0, O, 1, I)
+    function generateRoomCode() {
+      const pool = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let code = "";
+      for (let i = 0; i < 6; i++) {
+        code += pool.charAt(Math.floor(Math.random() * pool.length));
+      }
+      return code;
+    }
 
     // Cryptographic Helpers
     function generateSalt() {
@@ -492,7 +524,8 @@
       timeControlSetting = timeControlSelect.value;
       configureTimeControl(timeControlSetting);
 
-      peer = new Peer();
+      const customRoomId = generateRoomCode();
+      peer = new Peer(customRoomId);
 
       peer.on('open', (id) => {
         myRoomId = id;
@@ -507,10 +540,18 @@
         conn = c;
         setupConnectionListeners();
       });
+
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          hostBtn.click();
+        } else {
+          alert("PeerJS Error: " + err.message);
+        }
+      });
     });
 
     joinBtn.addEventListener('click', () => {
-      const targetId = joinIdInput.value.trim();
+      const targetId = joinIdInput.value.trim().toUpperCase();
       if (!targetId) {
         alert("Please enter a valid Host Room Code.");
         return;
@@ -594,7 +635,7 @@
         whiteTimeRemaining = initialTimeSec;
         blackTimeRemaining = initialTimeSec;
       } else if (clockMode === 'turn') {
-        initialTimeSec = numMinutes; // in seconds
+        initialTimeSec = numMinutes;
         turnTimeRemaining = initialTimeSec;
       }
 
@@ -1012,7 +1053,7 @@
         return true;
       }
 
-      gameOverOverlay.style.display = 'none';
+      gameOverBanner.style.display = 'none';
       isGameOver = false;
       return false;
     }
@@ -1021,7 +1062,7 @@
       isGameOver = true;
       stopClockTimer();
       gameOverMessage.textContent = msg;
-      gameOverOverlay.style.display = 'flex';
+      gameOverBanner.style.display = 'flex';
       statusEl.textContent = "GAME OVER";
       checkAlertEl.textContent = "";
       lockMoveBtn.disabled = true;
